@@ -1,5 +1,7 @@
 package com.hs.spotifydownloader.service;
 
+import com.hs.spotifydownloader.dto.MusicDto;
+import com.hs.spotifydownloader.dto.PlaylistResponseDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -7,9 +9,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.util.JSONPObject;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 
 @Service
 public class ApiService {
@@ -43,12 +48,20 @@ public class ApiService {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode json = mapper.readTree(result.getBody());
 
-        String accessToken = json.get("access_token").asText();
-        carregarPlaylist(accessToken, idPlaylist);
-        youtubeDownloadService.baixarMusica("Break on Through (To the Other Side) The Doors");
+        String accessToken = json.get("access_token").asString();
+        PlaylistResponseDto playlistResponseDto = carregarPlaylist(accessToken, idPlaylist);
+
+        for (MusicDto musicDto : playlistResponseDto.getMusicList()) {
+            System.out.println(musicDto.getArtistName() + " "+ musicDto.getTrackName());
+        }
+
+         youtubeDownloadService.baixarMusica("Mr. Big To Be With You");
     }
 
-    private void carregarPlaylist(String token, String idPlaylist) {
+    private PlaylistResponseDto carregarPlaylist(String token, String idPlaylist) {
+        ObjectMapper mapper = new ObjectMapper();
+        PlaylistResponseDto playlist = new PlaylistResponseDto();
+        List<MusicDto> musicList = new ArrayList<>();
 
         var result = this.restClient.get()
                 .uri("https://api.spotify.com/v1/playlists/" + idPlaylist)
@@ -56,8 +69,50 @@ public class ApiService {
                 .retrieve()
                 .toEntity(String.class);
 
-        String responsyBody = result.getBody();
-      //  System.out.println(responsyBody);
+        JsonNode jsonNode = mapper.readTree(result.getBody());
+        playlist.setPlaylistName(jsonNode.get("name").asString());
+
+        JsonNode tracksNode = jsonNode.path("tracks");
+        processarTracks(tracksNode.path("items"), musicList);
+
+        String nextUrl = tracksNode.path("next").asString(null);
+
+        while (nextUrl != null && !nextUrl.isEmpty()) {
+            var nextResult = this.restClient.get()
+                    .uri(nextUrl)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            JsonNode nextPage = mapper.readTree(nextResult.getBody());
+            processarTracks(nextPage.path("items"), musicList);
+
+            nextUrl = nextPage.path("next").asString(null);
+            System.out.println(nextUrl);
+        }
+
+        playlist.setMusicList(musicList);
+
+        return playlist;
     }
 
+    private void processarTracks(JsonNode items, List<MusicDto> musicList) {
+        for (JsonNode item : items) {
+            JsonNode track = item.path("track");
+
+            if (track.isMissingNode() || track.isNull()) {
+                continue;
+            }
+
+            MusicDto musicDto = new MusicDto();
+            musicDto.setTrackName(track.get("name").asString());
+
+            JsonNode artists = track.path("artists");
+            if (artists.isArray() && !artists.isEmpty()) {
+                musicDto.setArtistName(artists.get(0).path("name").asString());
+            }
+
+            musicList.add(musicDto);
+        }
+    }
 }

@@ -84,7 +84,6 @@ public class YoutubeDownloadService {
             Path musicasDir = Paths.get("C:", "musicas");
             Files.createDirectories(musicasDir);
 
-            // Remove caracteres inválidos para nomes de arquivo no Windows
             String fileName = artistAndTrack
                     .replaceAll("[/\\\\:*?\"<>|]", "-")
                     .trim();
@@ -148,7 +147,6 @@ public class YoutubeDownloadService {
 
         Path ytDlpExe = toolsDir.resolve("yt-dlp.exe");
 
-        // Se já existe, não precisa instalar novamente
         if (Files.exists(ytDlpExe)) {
             log.info("yt-dlp.exe já existe em C:\\tools");
             return;
@@ -163,7 +161,6 @@ public class YoutubeDownloadService {
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
-        // Lê a saída para evitar travamento
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {

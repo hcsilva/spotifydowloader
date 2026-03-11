@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout}">
+
+<head>
+    <title>Configurações</title>
+</head>
+
+<body>
+    <main layout:fragment="content">
+
+        <h4 class="mb-4">⚙️ Configurações</h4>
+
+        <!-- Credenciais Spotify -->
+        <div class="card mb-4">
+            <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                <span>🔑 Spotify API</span>
+                <a href="https://developer.spotify.com/dashboard/" target="_blank" class="btn btn-sm btn-success">
+                    <i class="bi bi-spotify"></i> Abrir Dashboard <i class="bi bi-box-arrow-up-right ms-1"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Client ID</label>
+                    <div class="input-group">
+                        <input type="password" id="clientId" class="form-control"
+                            placeholder="Cole aqui seu Client ID" />
+                        <button class="btn btn-outline-secondary" type="button"
+                            onclick="toggleVisibilidade('clientId', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Client Secret</label>
+                    <div class="input-group">
+                        <input type="password" id="clientSecret" class="form-control"
+                            placeholder="Cole aqui seu Client Secret" />
+                        <button class="btn btn-outline-secondary" type="button"
+                            onclick="toggleVisibilidade('clientSecret', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" onclick="salvarCredenciais()">💾 Salvar credenciais</button>
+                <button class="btn btn-danger" onclick="limparCredenciais()">🗑️ Limpar</button>
+            </div>
+        </div>
+        </div>
+
+        <div id="settingsAlertSuccess" class="alert alert-success d-none">✅ Salvo com sucesso!</div>
+        <div id="settingsAlertError" class="alert alert-danger  d-none"></div>
+
+    </main>
+</body>
+
+</html>

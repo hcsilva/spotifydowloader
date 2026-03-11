@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout}">
+
+<head>
+    <title>Baixar Músicas</title>
+</head>
+
+<body>
+    <main layout:fragment="content">
+
+        <h4 class="mb-4">⬇️ Baixar Músicas</h4>
+
+        <!-- Busca -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <label class="form-label fw-semibold">Link da Playlist</label>
+                <div class="d-flex gap-2">
+                    <input type="text" id="playlistUrl" class="form-control"
+                        placeholder="https://open.spotify.com/playlist/..."
+                        onkeydown="if(event.key==='Enter') buscarPlaylist()" />
+                    <button class="btn btn-primary" onclick="buscarPlaylist()">🔍 Buscar</button>
+                    <button class="btn btn-secondary" id="btnLimpar" onclick="limpar()" style="display:none">🗑️
+                        Limpar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerta de erro de busca -->
+        <div id="alertError" class="alert alert-danger d-none"></div>
+
+        <!-- Loading busca -->
+        <div id="loadingBusca" class="text-center py-3 d-none">
+            <div class="spinner-border text-primary" role="status"></div>
+            <div class="mt-2 text-muted">Buscando playlist...</div>
+        </div>
+
+        <!-- Resultados -->
+        <div id="resultsCard" class="card d-none">
+            <div class="card-body">
+
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0" id="playlistTitle">Músicas</h6>
+                    <span class="badge bg-secondary" id="trackCountBadge">0</span>
+                </div>
+
+                <!-- Ações de seleção -->
+                <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="selecionarTodas()">✅ Selecionar
+                        todas</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="deselecionarTodas()">☐ Desmarcar
+                        todas</button>
+                </div>
+
+                <!-- Lista de músicas com checkboxes -->
+                <div id="trackList"
+                    style="max-height: 380px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; padding: 8px;">
+                </div>
+
+                <!-- Barra de ações -->
+                <div class="d-flex align-items-center gap-2 flex-wrap mt-3">
+                    <button class="btn btn-success" id="btnDownload" onclick="abrirModalPasta()" disabled>
+                        ⬇️ Fazer Download
+                    </button>
+                    <button class="btn btn-danger" onclick="limpar()">🗑️ Limpar</button>
+                    <span class="text-muted ms-auto" id="selectedInfo">0 selecionada(s)</span>
+                </div>
+
+                <!-- Progresso -->
+                <div id="downloadProgress" class="alert alert-info d-none mt-3 mb-0">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    Baixando músicas, aguarde...
+                </div>
+
+                <div id="alertSuccess" class="alert alert-success d-none mt-3 mb-0"></div>
+                <div id="alertDownloadError" class="alert alert-danger  d-none mt-3 mb-0"></div>
+            </div>
+        </div>
+
+        <!-- Modal: escolher pasta de destino -->
+        <div class="modal fade" id="modalPasta" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">📁 Selecionar pasta de destino</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label">Caminho da pasta onde as músicas serão salvas:</label>
+                        <div class="input-group">
+                            <input type="text" id="pastaDestino" class="form-control" readonly />
+                            <button class="btn btn-outline-secondary" type="button" onclick="escolherPasta()">
+                                📁 Escolher Pasta
+                            </button>
+                        </div>
+                        <div class="form-text text-muted mt-1">
+                            Clique no botão ao lado para escolher ou alterar a pasta de destino.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-success" onclick="iniciarDownload()">⬇️ Baixar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</body>
+
+</html>

@@ -9,33 +9,40 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.util.JSONPObject;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ApiService {
 
-    @Value("${api.client-id}")
     private String clientId;
-    @Value("${api.client-secret}")
     private String clientSecret;
     private final RestClient restClient;
-    private final YoutubeDownloadService youtubeDownloadService;
 
-    public ApiService(RestClient restClient, YoutubeDownloadService youtubeDownloadService) {
+    public ApiService(RestClient restClient) {
         this.restClient = restClient;
-        this.youtubeDownloadService = youtubeDownloadService;
     }
 
-    public void loadAccessToken(String idPlaylist) {
+    public void setCredenciais(String clientId, String clientSecret) {
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+    }
+
+    /**
+     * Obtém o access token do Spotify via Client Credentials Flow.
+     */
+    private String obterAccessToken() {
+        if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
+            throw new IllegalStateException("Credenciais do Spotify não configuradas. Acesse a aba Configurações.");
+        }
+
         String body = "grant_type=client_credentials";
         String credentials = clientId + ":" + clientSecret;
         String basicAuth = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
-
 
         var result = this.restClient.post()
                 .uri("https://accounts.spotify.com/api/token")
@@ -47,18 +54,18 @@ public class ApiService {
 
         ObjectMapper mapper = new ObjectMapper();
         JsonNode json = mapper.readTree(result.getBody());
-
-        String accessToken = json.get("access_token").asString();
-        PlaylistResponseDto playlistResponseDto = carregarPlaylist(accessToken, idPlaylist);
-
-        for (MusicDto musicDto : playlistResponseDto.getMusicList()) {
-            System.out.println(musicDto.getArtistName() + " "+ musicDto.getTrackName());
-        }
-
-         youtubeDownloadService.baixarMusica("Mr. Big To Be With You");
+        return json.get("access_token").asString();
     }
 
-    private PlaylistResponseDto carregarPlaylist(String token, String idPlaylist) {
+    /**
+     * Busca a playlist do Spotify e retorna o DTO com nome e lista de músicas.
+     */
+    public PlaylistResponseDto carregarPlaylist(String idPlaylist) {
+        String accessToken = obterAccessToken();
+        return carregarPlaylistComToken(accessToken, idPlaylist);
+    }
+
+    private PlaylistResponseDto carregarPlaylistComToken(String token, String idPlaylist) {
         ObjectMapper mapper = new ObjectMapper();
         PlaylistResponseDto playlist = new PlaylistResponseDto();
         List<MusicDto> musicList = new ArrayList<>();

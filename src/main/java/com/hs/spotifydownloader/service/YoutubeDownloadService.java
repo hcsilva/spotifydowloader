@@ -19,8 +19,11 @@ public class YoutubeDownloadService {
     private String ytDlpPath;
 
     public boolean baixarMusica(String artistAndTrack) {
+        return baixarMusica(artistAndTrack, "C:\\musicas");
+    }
+
+    public boolean baixarMusica(String artistAndTrack, String destinationFolder) {
         try {
-            // Garante que yt-dlp está instalado e disponível
             if (ytDlpPath == null) {
                 ytDlpPath = findYtDlp();
 
@@ -37,7 +40,7 @@ public class YoutubeDownloadService {
             }
 
             log.info("Usando yt-dlp em: {}", ytDlpPath);
-            return downloadTrack(artistAndTrack);
+            return downloadTrack(artistAndTrack, destinationFolder);
 
         } catch (Exception e) {
             log.error("Erro ao baixar música: {}", e.getMessage(), e);
@@ -47,10 +50,10 @@ public class YoutubeDownloadService {
 
     private String findYtDlp() {
         String[] possiblePaths = {
-                "yt-dlp",                                // In PATH
-                "C:\\tools\\yt-dlp.exe",                 // Instalação customizada
-                "/usr/local/bin/yt-dlp",                 // Linux/Mac
-                "/usr/bin/yt-dlp",                       // Linux
+                "yt-dlp", // In PATH
+                "C:\\tools\\yt-dlp.exe", // Instalação customizada
+                "/usr/local/bin/yt-dlp", // Linux/Mac
+                "/usr/bin/yt-dlp", // Linux
                 "C:\\Program Files\\yt-dlp\\yt-dlp.exe", // Windows default
                 System.getProperty("user.home") + "/bin/yt-dlp"
         };
@@ -79,9 +82,9 @@ public class YoutubeDownloadService {
         }
     }
 
-    private boolean downloadTrack(String artistAndTrack) {
+    private boolean downloadTrack(String artistAndTrack, String destinationFolder) {
         try {
-            Path musicasDir = Paths.get("C:", "musicas");
+            Path musicasDir = Paths.get(destinationFolder);
             Files.createDirectories(musicasDir);
 
             String fileName = artistAndTrack
@@ -93,15 +96,17 @@ public class YoutubeDownloadService {
             ProcessBuilder processBuilder = new ProcessBuilder(
                     ytDlpPath,
                     "ytsearch:" + artistAndTrack,
-                    "-x",                                    // Extract audio
-                    "--audio-format", "mp3",                 // Convert to mp3
-                    "--audio-quality", "0",                  // Best quality (320kbps)
+                    "-x", // Extrair apenas o áudio
+                    "--audio-format", "mp3", // Forçar formato MP3
+                    "--audio-quality", "0", // 0 é a melhor qualidade no VBR do ffmpeg (geralmente ~320kbps)
+                    // Garantir que baixe o mlehor áudio disponível do youtube antes de converter
+                    "-f", "bestaudio/best",
                     "-o", musicasDir.resolve(fileName + ".%(ext)s").toString(),
-                    "--add-metadata",                        // Add metadata
-                    "--embed-thumbnail",                     // Embed thumbnail
-                    "--no-playlist",                         // Don't download playlists
-                    "--progress",                            // Show progress
-                    "--newline"                              // New line per progress update
+                    "--add-metadata", // Adiciona artista/título no MP3
+                    "--embed-thumbnail", // Embutir capa do álbum
+                    "--no-playlist", // Don't download playlists
+                    "--progress", // Show progress
+                    "--newline" // New line per progress update
             );
 
             processBuilder.directory(musicasDir.toFile());
@@ -131,7 +136,6 @@ public class YoutubeDownloadService {
 
             return success;
 
-
         } catch (IOException | InterruptedException e) {
             log.error("Erro durante o download: {}", e.getMessage(), e);
             Thread.currentThread().interrupt(); // Restaura status de interrupção
@@ -155,8 +159,7 @@ public class YoutubeDownloadService {
         ProcessBuilder pb = new ProcessBuilder(
                 "powershell",
                 "-Command",
-                "Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile C:\\tools\\yt-dlp.exe"
-        );
+                "Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile C:\\tools\\yt-dlp.exe");
 
         pb.redirectErrorStream(true);
         Process process = pb.start();

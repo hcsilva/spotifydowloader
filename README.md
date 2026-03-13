@@ -45,33 +45,3 @@ Para que o sistema consiga ler as suas playlists, ele precisa de uma "chave de a
 5. Clique em **⬇️ Fazer Download**.
 6. Uma janelinha vai abrir pedindo para você escolher a **Pasta de Destino** (onde as músicas serão salvas no seu PC).
 7. Clique em **Baixar** e pronto! O sistema vai baixar as músicas para a pasta escolhida em formato MP3.
-
----
-
-## 🛠️ Detalhes Técnicos
-
-Para desenvolvedores e curiosos, o projeto foi construído utilizando:
-- **Backend:** Java 25 e Spring Boot 4
-- **Frontend:** HTML, CSS, JavaScript (Vanilla e Alpine.js), Bootstrap 5, Thymeleaf
-- **Comunicação:** REST APIs para interagir com os serviços de música.
-- **Engine de Download:** [yt-dlp](https://github.com/yt-dlp/yt-dlp) (Uma versão aprimorada do youtube-dl).
-
----
-
-## 💡 Dúvidas Comuns
-
-**As músicas ficam com capa de álbum?**
-Não. Para garantir um download mais rápido e arquivos menores, o sistema baixa apenas o áudio limpo da música.
-
-**A mensagem "Baixando..." some se eu mudar de aba?**
-Não! Você pode navegar entre "Home" e "Configurações" enquanto suas músicas baixam. O sistema continua indicando o progresso para você.
-
-**Onde as músicas são salvas se eu não escolher pasta?**
-Por padrão, o sistema tentará usar a pasta `C:\musicas`. Se ela não existir, o próprio programa criará a pasta para você.
-
-**Tive um problema com o yt-dlp, o que fazer?**
-Certifique-se de que nada no seu computador está bloqueando acessos a ferramentas de terminal (como antivírus hiper restritivos). O sistema tenta baixar o yt-dlp para `C:\tools\yt-dlp.exe`. Se der erro de permissão, tente executar a sua IDE/Terminal como Administrador apenas na primeira vez.
-
----
-
-🤍 Feito para facilitar sua experiência musical offline. Aproveite!

@@ -103,7 +103,6 @@ public class YoutubeDownloadService {
                     "-f", "bestaudio/best",
                     "-o", musicasDir.resolve(fileName + ".%(ext)s").toString(),
                     "--add-metadata", // Adiciona artista/título no MP3
-                    "--embed-thumbnail", // Embutir capa do álbum
                     "--no-playlist", // Don't download playlists
                     "--progress", // Show progress
                     "--newline" // New line per progress update

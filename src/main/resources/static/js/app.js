@@ -183,14 +183,65 @@ async function iniciarDownload() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tracks: selecionadas, destinationFolder: pasta })
         });
-        if (!res.ok) throw new Error(await res.text());
         const result = await res.json();
-        showAlert('alertSuccess', `✅ ${result.downloaded} música(s) baixada(s) com sucesso em: ${pasta}`);
+        if (!res.ok) throw new Error(result.error || 'Erro ao iniciar download');
+        
+        localStorage.setItem('spotify_download_active', 'true');
+        checkDownloadStatus();
     } catch (e) {
-        showAlert('alertDownloadError', '❌ ' + (e.message || 'Erro no download.'));
-    } finally {
         document.getElementById('downloadProgress').classList.add('d-none');
         atualizarSelecionadas();
+        showAlert('alertDownloadError', '❌ ' + (e.message || 'Erro no download.'));
+    }
+}
+
+// ── polling ───────────────────────────────────────────────
+let pollingInterval = null;
+
+async function checkDownloadStatus() {
+    try {
+        const res = await fetch('/api/download/status');
+        if (!res.ok) return;
+        const status = await res.json();
+        
+        const progressAlert = document.getElementById('downloadProgress');
+        const btnDownload = document.getElementById('btnDownload');
+        
+        if (status.isDownloading) {
+            localStorage.setItem('spotify_download_active', 'true');
+            if (progressAlert) {
+                progressAlert.classList.remove('d-none');
+                let msg = `Baixando músicas: ${status.downloaded + status.failed} de ${status.total} (Erros: ${status.failed}). Aguarde...`;
+                progressAlert.innerHTML = `<div class="spinner-border spinner-border-sm me-2" role="status"></div>${msg}`;
+            }
+            if (btnDownload) btnDownload.disabled = true;
+            
+            if (!pollingInterval) {
+                pollingInterval = setInterval(checkDownloadStatus, 2000);
+            }
+        } else {
+            // Não está baixando
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+            }
+            if (progressAlert) progressAlert.classList.add('d-none');
+            if (btnDownload) atualizarSelecionadas();
+            
+            // Verifica se um download acabou de terminar
+            if (localStorage.getItem('spotify_download_active') === 'true') {
+                localStorage.removeItem('spotify_download_active');
+                if (status.total > 0) {
+                    if (status.failed > 0) {
+                        showAlert('alertSuccess', `⚠️ ${status.downloaded} baixada(s), mas ${status.failed} falharam na pasta: ${status.destinationFolder}`);
+                    } else {
+                        showAlert('alertSuccess', `✅ ${status.downloaded} música(s) baixada(s) com sucesso em: ${status.destinationFolder}`);
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Erro ao verificar status do download", e);
     }
 }
 
@@ -253,6 +304,8 @@ function toggleVisibilidade(inputId, btn) {
 
 // ── init (restore state on page load) ─────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    // Retomar polling se necessário
+    checkDownloadStatus();
     // Restaurar Configurações
     const elClientId = document.getElementById('clientId');
     const elClientSecret = document.getElementById('clientSecret');

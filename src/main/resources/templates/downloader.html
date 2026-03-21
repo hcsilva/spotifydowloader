@@ -1,112 +1,294 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-    layout:decorate="~{layout}">
-
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/main}"
+      lang="pt-BR">
 <head>
-    <title>Baixar Músicas</title>
+    <title>Download — Spotify Downloader</title>
 </head>
-
 <body>
-    <main layout:fragment="content">
+<div layout:fragment="content">
 
-        <h4 class="mb-4">⬇️ Baixar Músicas</h4>
-
-        <!-- Busca -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <label class="form-label fw-semibold">Link da Playlist</label>
-                <div class="d-flex gap-2">
-                    <input type="text" id="playlistUrl" class="form-control"
-                        placeholder="https://open.spotify.com/playlist/..."
-                        onkeydown="if(event.key==='Enter') buscarPlaylist()" />
-                    <button class="btn btn-primary" onclick="buscarPlaylist()">🔍 Buscar</button>
-                    <button class="btn btn-secondary" id="btnLimpar" onclick="limpar()" style="display:none">🗑️
-                        Limpar</button>
+    <!-- Search Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">&#9654; Buscar Playlist do Spotify</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="/downloader" id="searchForm">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-8">
+                        <label for="playlistUrl" class="form-label fw-semibold">Link da Playlist</label>
+                        <input type="url"
+                               id="playlistUrl"
+                               name="playlistUrl"
+                               class="form-control"
+                               placeholder="https://open.spotify.com/playlist/..."
+                               th:value="${playlistUrl}"
+                               required/>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="folder" class="form-label fw-semibold">Pasta de destino</label>
+                        <input type="text"
+                               id="folder"
+                               name="folder"
+                               class="form-control"
+                               placeholder="C:\musicas"
+                               th:value="${folder}"/>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-spotify w-100">
+                            &#128269; Buscar
+                        </button>
+                    </div>
                 </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Error alert -->
+    <div th:if="${erro}" class="alert alert-danger" role="alert">
+        <strong>Erro:</strong> <span th:text="${erro}"></span>
+    </div>
+
+    <!-- Success alert -->
+    <div th:if="${mensagem}" class="alert alert-success" role="alert">
+        <strong>&#10003;</strong> <span th:text="${mensagem}"></span>
+    </div>
+
+    <!-- Playlist Results -->
+    <div th:if="${playlist}" class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="playlist-header">
+                <h5 class="mb-0" th:text="${playlist.playlistName}">Nome da Playlist</h5>
+                <small class="text-muted">
+                    <span th:text="${#lists.size(playlist.musicList)}">0</span> músicas encontradas
+                </small>
             </div>
+            <span class="badge badge-spotify rounded-pill"
+                  th:text="${#lists.size(playlist.musicList)} + ' faixas'"></span>
         </div>
-
-        <!-- Alerta de erro de busca -->
-        <div id="alertError" class="alert alert-danger d-none"></div>
-
-        <!-- Loading busca -->
-        <div id="loadingBusca" class="text-center py-3 d-none">
-            <div class="spinner-border text-primary" role="status"></div>
-            <div class="mt-2 text-muted">Buscando playlist...</div>
-        </div>
-
-        <!-- Resultados -->
-        <div id="resultsCard" class="card d-none">
-            <div class="card-body">
-
-                <!-- Header -->
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="mb-0" id="playlistTitle">Músicas</h6>
-                    <span class="badge bg-secondary" id="trackCountBadge">0</span>
-                </div>
-
-                <!-- Ações de seleção -->
-                <div class="d-flex gap-2 mb-3">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="selecionarTodas()">✅ Selecionar
-                        todas</button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="deselecionarTodas()">☐ Desmarcar
-                        todas</button>
-                </div>
-
-                <!-- Lista de músicas com checkboxes -->
-                <div id="trackList"
-                    style="max-height: 380px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; padding: 8px;">
-                </div>
-
-                <!-- Barra de ações -->
-                <div class="d-flex align-items-center gap-2 flex-wrap mt-3">
-                    <button class="btn btn-success" id="btnDownload" onclick="abrirModalPasta()" disabled>
-                        ⬇️ Fazer Download
+        <div class="card-body p-0">
+            <form method="post" action="/downloader/download" id="downloadForm">
+                <input type="hidden" name="folder" th:value="${folder}"/>
+                <input type="hidden" id="playlistName" name="playlistName" th:value="${playlist.playlistName}"/>
+                
+                <!-- Action Buttons -->
+                <div class="p-3 d-flex justify-content-between align-items-center"
+                     style="background-color: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm me-2" onclick="toggleSelectAll()">
+                            &#10004; Selecionar Todas
+                        </button>
+                    </div>
+                    <button type="submit" class="btn btn-spotify btn-sm">
+                        &#8595; Baixar Selecionadas
                     </button>
-                    <button class="btn btn-danger" onclick="limpar()">🗑️ Limpar</button>
-                    <span class="text-muted ms-auto" id="selectedInfo">0 selecionada(s)</span>
                 </div>
 
-                <!-- Progresso -->
-                <div id="downloadProgress" class="alert alert-info d-none mt-3 mb-0">
-                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                    Baixando músicas, aguarde...
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                        <tr>
+                            <th style="width: 50px;">
+                                <div class="form-check">
+                                    <!-- Thymeleaf-only select-all workaround: we use a separate form for select-all toggling via a GET -->
+                                </div>
+                            </th>
+                            <th>#</th>
+                            <th>Artista</th>
+                            <th>Música</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="music, stat : ${playlist.musicList}">
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           name="selectedTracks"
+                                           th:value="${music.artistName} + '|' + ${music.trackName}"
+                                           th:id="'track-' + ${stat.index}"
+                                           th:checked="${selectedAll}"/>
+                                </div>
+                            </td>
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td th:text="${music.artistName}"></td>
+                            <td th:text="${music.trackName}"></td>
+                        </tr>
+                        </tbody>
+                    </table>
                 </div>
-
-                <div id="alertSuccess" class="alert alert-success d-none mt-3 mb-0"></div>
-                <div id="alertDownloadError" class="alert alert-danger  d-none mt-3 mb-0"></div>
-            </div>
+            </form>
         </div>
+    </div>
+    
+    <script th:inline="javascript">
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('input[name="selectedTracks"]');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+        }
 
-        <!-- Modal: escolher pasta de destino -->
-        <div class="modal fade" id="modalPasta" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">📁 Selecionar pasta de destino</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <label class="form-label">Caminho da pasta onde as músicas serão salvas:</label>
-                        <div class="input-group">
-                            <input type="text" id="pastaDestino" class="form-control" readonly />
-                            <button class="btn btn-outline-secondary" type="button" onclick="escolherPasta()">
-                                📁 Escolher Pasta
-                            </button>
-                        </div>
-                        <div class="form-text text-muted mt-1">
-                            Clique no botão ao lado para escolher ou alterar a pasta de destino.
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" class="btn btn-success" onclick="iniciarDownload()">⬇️ Baixar</button>
-                    </div>
+        const searchForm = document.getElementById('searchForm');
+        if (searchForm) {
+            searchForm.addEventListener('submit', function (e) {
+                const clientId = localStorage.getItem("spotifyClientId");
+                const clientSecret = localStorage.getItem("spotifyClientSecret");
+                
+                if (clientId && clientSecret) {
+                    e.preventDefault();
+                    const submitBtn = searchForm.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = 'Aguarde...';
+
+                    fetch('/api/credenciais', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clientId: clientId, clientSecret: clientSecret })
+                    })
+                    .then(() => {
+                        searchForm.submit();
+                    })
+                    .catch(err => {
+                        console.error('Erro ao sincronizar credenciais antes da busca', err);
+                        searchForm.submit();
+                    });
+                }
+            });
+        }
+
+        const downloadForm = document.getElementById('downloadForm');
+        if (downloadForm) {
+            downloadForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const selectedTracks = [];
+                document.querySelectorAll('input[name="selectedTracks"]:checked').forEach(cb => {
+                    const parts = cb.value.split('|', 2);
+                    if (parts.length === 2) {
+                        selectedTracks.push({
+                            artistName: parts[0],
+                            trackName: parts[1]
+                        });
+                    }
+                });
+
+                if (selectedTracks.length === 0) {
+                    alert('Nenhuma música selecionada para download.');
+                    return;
+                }
+
+                const folder = document.querySelector('input[name="folder"]').value;
+                const playlistName = document.getElementById('playlistName') ? document.getElementById('playlistName').value : '';
+
+                const submitBtn = downloadForm.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = 'Iniciando...';
+
+                // Post to API
+                fetch('/api/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tracks: selectedTracks,
+                        destinationFolder: folder,
+                        playlistName: playlistName
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Erro ao iniciar download.');
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('progressContainer').classList.remove('d-none');
+                    pollStatus();
+                })
+                .catch(error => {
+                    alert('Erro: Já existe um download em andamento ou ocorreu um erro de rede.');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '&#8595; Baixar Selecionadas';
+                });
+            });
+        }
+
+        function pollStatus() {
+            fetch('/api/download/status')
+                .then(res => res.json())
+                .then(status => {
+                    const total = status.total;
+                    const downloaded = status.downloaded;
+                    const failed = status.failed;
+                    const completed = downloaded + failed;
+                    
+                    if (total > 0) {
+                        const percent = Math.round((completed / total) * 100);
+                        const progressBar = document.getElementById('progressBar');
+                        progressBar.style.width = percent + '%';
+                        progressBar.innerHTML = percent + '%';
+                        
+                        document.getElementById('progressText').innerHTML = `${completed} / ${total} concluídas`;
+                        
+                        if (failed > 0) {
+                            const failedSpan = document.getElementById('progressFailed');
+                            failedSpan.innerHTML = `(${failed} falhas)`;
+                            failedSpan.classList.remove('d-none');
+                        }
+                    }
+
+                    if (status.isDownloading) {
+                        setTimeout(pollStatus, 1000); // poll every 1 second
+                    } else {
+                        const submitBtn = document.getElementById('downloadForm').querySelector('button[type="submit"]');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '&#8595; Baixar Selecionadas';
+                        
+                        const progressBar = document.getElementById('progressBar');
+                        progressBar.classList.remove('progress-bar-animated');
+                        
+                        // Keep success state for a moment before optionally hiding
+                        setTimeout(() => {
+                            if(failed > 0) {
+                                alert(`Download finalizado. Concluídos: ${downloaded}. Falhas: ${failed}.`);
+                            } else {
+                                alert(`Download finalizado com sucesso! Todas as ${downloaded} músicas foram baixadas.`);
+                            }
+                        }, 500);
+                    }
+                })
+                .catch(err => {
+                    console.error('Erro ao buscar status', err);
+                    setTimeout(pollStatus, 2000);
+                });
+        }
+    </script>
+
+    <!-- Progress Loader (Hidden by Default) -->
+    <div id="progressContainer" class="card mt-4 d-none" style="border: 2px solid #1DB954;">
+        <div class="card-body text-center">
+            <h5 class="mb-3">&#8642; Baixando Músicas...</h5>
+            <div class="progress mb-3" style="height: 25px; background-color: #e9ecef;">
+                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                     role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    0%
                 </div>
             </div>
+            <p class="mb-0 fw-bold" style="color: #212529;">
+                <span id="progressText">0 / 0 baixadas</span>
+                <span id="progressFailed" class="text-danger ms-2 d-none"> (0 falhas)</span>
+            </p>
         </div>
+    </div>
 
-    </main>
+    <!-- Empty state -->
+    <div th:if="${playlist == null and erro == null}" class="text-center py-5">
+        <div style="font-size: 4rem; opacity: 0.2;">&#9654;</div>
+        <p class="text-muted mt-3">Cole o link de uma playlist do Spotify acima e clique em <strong>Buscar</strong>.</p>
+    </div>
+
+</div>
 </body>
-
 </html>

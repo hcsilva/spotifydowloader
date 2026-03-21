@@ -10,17 +10,17 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 @Service
 public class YoutubeDownloadService {
 
     private static final Logger log = LoggerFactory.getLogger(YoutubeDownloadService.class);
+    private static final String TOOLS_DIR = "C:\\tools";
 
     private String ytDlpPath;
-
-    public boolean baixarMusica(String artistAndTrack) {
-        return baixarMusica(artistAndTrack, "C:\\musicas");
-    }
 
     public boolean baixarMusica(String artistAndTrack, String destinationFolder) {
         try {
@@ -50,11 +50,11 @@ public class YoutubeDownloadService {
 
     private String findYtDlp() {
         String[] possiblePaths = {
-                "yt-dlp", // In PATH
-                "C:\\tools\\yt-dlp.exe", // Instalação customizada
-                "/usr/local/bin/yt-dlp", // Linux/Mac
-                "/usr/bin/yt-dlp", // Linux
-                "C:\\Program Files\\yt-dlp\\yt-dlp.exe", // Windows default
+                "yt-dlp",
+                TOOLS_DIR + "\\yt-dlp.exe",
+                "/usr/local/bin/yt-dlp",
+                "/usr/bin/yt-dlp",
+                "C:\\Program Files\\yt-dlp\\yt-dlp.exe",
                 System.getProperty("user.home") + "/bin/yt-dlp"
         };
 
@@ -74,9 +74,7 @@ public class YoutubeDownloadService {
             Process process = new ProcessBuilder(command, "--version")
                     .redirectErrorStream(true)
                     .start();
-
-            int exitCode = process.waitFor();
-            return exitCode == 0;
+            return process.waitFor() == 0;
         } catch (Exception e) {
             return false;
         }
@@ -93,27 +91,25 @@ public class YoutubeDownloadService {
 
             log.info("Baixando: {}", artistAndTrack);
 
-            ProcessBuilder processBuilder = new ProcessBuilder(
+            List<String> command = new ArrayList<>(Arrays.asList(
                     ytDlpPath,
-                    "ytsearch:" + artistAndTrack,
-                    "-x", // Extrair apenas o áudio
-                    "--audio-format", "mp3", // Forçar formato MP3
-                    "--audio-quality", "0", // 0 é a melhor qualidade no VBR do ffmpeg (geralmente ~320kbps)
-                    // Garantir que baixe o mlehor áudio disponível do youtube antes de converter
-                    "-f", "bestaudio/best",
+                    "ytsearch1:" + artistAndTrack,
+                    "--extract-audio",
+                    "--audio-format", "mp3",
+                    "--audio-quality", "0",
                     "-o", musicasDir.resolve(fileName + ".%(ext)s").toString(),
-                    "--add-metadata", // Adiciona artista/título no MP3
-                    "--no-playlist", // Don't download playlists
-                    "--progress", // Show progress
-                    "--newline" // New line per progress update
-            );
+                    "--embed-metadata",
+                    "--no-playlist",
+                    "--progress",
+                    "--newline"
+            ));
 
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
             processBuilder.directory(musicasDir.toFile());
             processBuilder.redirectErrorStream(true);
 
             Process process = processBuilder.start();
 
-            // Lê a saída do processo
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -124,58 +120,83 @@ public class YoutubeDownloadService {
             int exitCode = process.waitFor();
             log.info("Exit code: {}", exitCode);
 
-            boolean arquivoExiste = Files.exists(musicasDir);
-            boolean success = (exitCode == 0 || exitCode == 1) && arquivoExiste;
+            boolean success = (exitCode == 0 || exitCode == 1) && Files.exists(musicasDir);
 
             if (success) {
                 log.info("✓ Download concluído: {}", musicasDir);
             } else {
-                log.error("✗ Falha no download. Exit code: {}, Arquivo existe: {}", exitCode, arquivoExiste);
+                log.error("✗ Falha no download. Exit code: {}", exitCode);
             }
 
             return success;
 
         } catch (IOException | InterruptedException e) {
             log.error("Erro durante o download: {}", e.getMessage(), e);
-            Thread.currentThread().interrupt(); // Restaura status de interrupção
+            Thread.currentThread().interrupt();
             return false;
         }
     }
 
     private void instalarYtdlp() throws IOException, InterruptedException {
-        log.info("Instalando yt-dlp em C:\\tools...");
+        log.info("Instalando yt-dlp em {}...", TOOLS_DIR);
 
-        Path toolsDir = Path.of("C:/tools");
+        Path toolsDir = Path.of(TOOLS_DIR);
         Files.createDirectories(toolsDir);
 
         Path ytDlpExe = toolsDir.resolve("yt-dlp.exe");
 
         if (Files.exists(ytDlpExe)) {
-            log.info("yt-dlp.exe já existe em C:\\tools");
+            log.info("yt-dlp.exe já existe em {}", TOOLS_DIR);
             return;
         }
 
         ProcessBuilder pb = new ProcessBuilder(
-                "powershell",
-                "-Command",
-                "Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile C:\\tools\\yt-dlp.exe");
+                "powershell", "-Command",
+                "Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe " +
+                        "-OutFile '" + ytDlpExe + "'"
+        );
+        executarComando(pb, "PowerShell (yt-dlp)");
 
-        pb.redirectErrorStream(true);
+        log.info("✓ yt-dlp instalado com sucesso em {}", ytDlpExe);
+    }
+
+    private void executarComando(ProcessBuilder pb, String label) throws IOException, InterruptedException {
+        pb.redirectErrorStream(false);
+
         Process process = pb.start();
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                log.debug("PowerShell: {}", line);
+        Thread stdoutThread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.info("{}: {}", label, line);
+                }
+            } catch (IOException e) {
+                log.warn("Erro ao ler stdout de {}: {}", label, e.getMessage());
             }
-        }
+        });
+
+        Thread stderrThread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    log.error("{} [STDERR]: {}", label, line);
+                }
+            } catch (IOException e) {
+                log.warn("Erro ao ler stderr de {}: {}", label, e.getMessage());
+            }
+        });
+
+        stdoutThread.start();
+        stderrThread.start();
 
         int exitCode = process.waitFor();
 
-        if (exitCode != 0) {
-            throw new IllegalStateException("Falha ao instalar yt-dlp. Exit code: " + exitCode);
-        }
+        stdoutThread.join();
+        stderrThread.join();
 
-        log.info("yt-dlp instalado com sucesso em C:\\tools\\yt-dlp.exe");
+        if (exitCode != 0) {
+            throw new IllegalStateException("Comando falhou [" + label + "]. Exit code: " + exitCode);
+        }
     }
 }

@@ -2,7 +2,6 @@ package com.hs.spotifydownloader.service;
 
 import com.hs.spotifydownloader.dto.MusicDto;
 import com.hs.spotifydownloader.dto.PlaylistResponseDto;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -14,7 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class ApiService {
@@ -32,9 +30,6 @@ public class ApiService {
         this.clientSecret = clientSecret;
     }
 
-    /**
-     * Obtém o access token do Spotify via Client Credentials Flow.
-     */
     private String obterAccessToken() {
         if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
             throw new IllegalStateException("Credenciais do Spotify não configuradas. Acesse a aba Configurações.");
@@ -57,9 +52,6 @@ public class ApiService {
         return json.get("access_token").asString();
     }
 
-    /**
-     * Busca a playlist do Spotify e retorna o DTO com nome e lista de músicas.
-     */
     public PlaylistResponseDto carregarPlaylist(String idPlaylist) {
         String accessToken = obterAccessToken();
         return carregarPlaylistComToken(accessToken, idPlaylist);
@@ -95,7 +87,6 @@ public class ApiService {
             processarTracks(nextPage.path("items"), musicList);
 
             nextUrl = nextPage.path("next").asString(null);
-            System.out.println(nextUrl);
         }
 
         playlist.setMusicList(musicList);

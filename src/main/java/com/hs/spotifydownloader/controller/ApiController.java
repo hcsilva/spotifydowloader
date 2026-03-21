@@ -1,7 +1,6 @@
 package com.hs.spotifydownloader.controller;
 
 import com.hs.spotifydownloader.dto.DownloadRequestDto;
-import com.hs.spotifydownloader.dto.DownloadResponseDto;
 import com.hs.spotifydownloader.dto.MusicDto;
 import com.hs.spotifydownloader.dto.PlaylistResponseDto;
 import com.hs.spotifydownloader.service.ApiService;
@@ -24,7 +23,6 @@ public class ApiController {
     private final ApiService apiService;
     private final YoutubeDownloadService youtubeDownloadService;
 
-    // Estado do download
     private final AtomicBoolean isDownloading = new AtomicBoolean(false);
     private final AtomicInteger downloadedCount = new AtomicInteger(0);
     private final AtomicInteger failedCount = new AtomicInteger(0);
@@ -36,9 +34,6 @@ public class ApiController {
         this.youtubeDownloadService = youtubeDownloadService;
     }
 
-    /**
-     * Busca as músicas de uma playlist do Spotify pelo ID.
-     */
     @GetMapping("/playlist/{id}")
     public ResponseEntity<?> buscarPlaylist(@PathVariable String id) {
         try {
@@ -66,14 +61,17 @@ public class ApiController {
             pasta = "C:\\musicas";
         }
 
-        // Reseta o estado
+        if (request.getPlaylistName() != null && !request.getPlaylistName().isBlank()) {
+            String sanitizedPlaylistName = request.getPlaylistName().replaceAll("[/\\\\:*?\"<>|]", "_");
+            pasta = pasta.endsWith("\\") ? pasta + sanitizedPlaylistName : pasta + "\\" + sanitizedPlaylistName;
+        }
+
         isDownloading.set(true);
         downloadedCount.set(0);
         failedCount.set(0);
         totalTracks.set(request.getTracks().size());
         currentDestinationFolder = pasta;
 
-        // Inicia em background
         new Thread(() -> {
             try {
                 for (MusicDto music : request.getTracks()) {
@@ -101,27 +99,20 @@ public class ApiController {
     @GetMapping("/download/status")
     public ResponseEntity<?> getDownloadStatus() {
         return ResponseEntity.ok(Map.of(
-            "isDownloading", isDownloading.get(),
-            "downloaded", downloadedCount.get(),
-            "failed", failedCount.get(),
-            "total", totalTracks.get(),
-            "destinationFolder", currentDestinationFolder
+                "isDownloading", isDownloading.get(),
+                "downloaded", downloadedCount.get(),
+                "failed", failedCount.get(),
+                "total", totalTracks.get(),
+                "destinationFolder", currentDestinationFolder
         ));
     }
 
-    /**
-     * Salva as configurações gerais (persistência em memória por enquanto).
-     */
     @PostMapping("/configuracoes")
     public ResponseEntity<?> salvarConfiguracoes(@RequestBody Map<String, Object> config) {
         log.info("Configurações recebidas: {}", config);
-        // TODO: persist to file/db
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
-    /**
-     * Salva credenciais (demonstração — em produção use variáveis de ambiente).
-     */
     @PostMapping("/credenciais")
     public ResponseEntity<?> salvarCredenciais(@RequestBody Map<String, String> creds) {
         log.info("Credenciais recebidas para atualização.");

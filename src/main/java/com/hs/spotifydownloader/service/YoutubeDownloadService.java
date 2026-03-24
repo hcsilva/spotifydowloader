@@ -19,6 +19,7 @@ public class YoutubeDownloadService {
 
     private static final Logger log = LoggerFactory.getLogger(YoutubeDownloadService.class);
     private static final String TOOLS_DIR = "C:\\tools";
+    private static final String FFMPEG_RELATIVE_PATH = "target/ffmpeg";
 
     private String ytDlpPath;
 
@@ -91,6 +92,8 @@ public class YoutubeDownloadService {
 
             log.info("Baixando: {}", artistAndTrack);
 
+            String ffmpegPath = Paths.get(FFMPEG_RELATIVE_PATH).toAbsolutePath().toString();
+
             List<String> command = new ArrayList<>(Arrays.asList(
                     ytDlpPath,
                     "ytsearch1:" + artistAndTrack,
@@ -98,6 +101,7 @@ public class YoutubeDownloadService {
                     "--audio-format", "mp3",
                     "--audio-quality", "0",
                     "-o", musicasDir.resolve(fileName + ".%(ext)s").toString(),
+                    "--ffmpeg-location", ffmpegPath,
                     "--embed-metadata",
                     "--no-playlist",
                     "--progress",

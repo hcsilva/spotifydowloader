@@ -62,36 +62,6 @@
                 </div>
             </div>
 
-            <!-- FFmpeg Instruction Card -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">&#128266; Instalação do FFmpeg</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-3">
-                        O <strong>FFmpeg</strong> é necessário para converter as músicas baixadas para o formato MP3.
-                        Se você ainda não o tem instalado, execute o comando abaixo no PowerShell ou Prompt de Comando (como Administrador):
-                    </p>
-                    <div class="input-group mb-3">
-                        <input type="text" class="form-control font-monospace text-muted" value="winget install --id=Gyan.FFmpeg -e" readonly id="ffmpegCmd">
-                        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('ffmpegCmd').value)">
-                            Copiar
-                        </button>
-                    </div>
-                    <p class="text-muted small mb-2 mt-4">
-                        Caso precise de um caminho específico para o binário do FFmpeg (se não estiver no PATH), você pode informar o caminho manualmente abaixo:
-                    </p>
-                    <div class="mb-3">
-                        <label for="ffmpegPath" class="form-label fw-semibold">Caminho do FFmpeg (Opcional)</label>
-                        <input type="text"
-                               id="ffmpegPath"
-                               class="form-control"
-                               placeholder="Ex: C:\tools\ffmpeg\bin"
-                               autocomplete="off"/>
-                    </div>
-                </div>
-            </div>
-
             <!-- Spotify Developer Dashboard link -->
             <div class="card">
                 <div class="card-body d-flex align-items-center gap-3">
@@ -124,16 +94,6 @@
             }
             if (localStorage.getItem("spotifyClientSecret")) {
                 clientSecretInput.value = localStorage.getItem("spotifyClientSecret");
-            }
-
-            const ffmpegPathInput = document.getElementById("ffmpegPath");
-            if (ffmpegPathInput) {
-                if (localStorage.getItem("ffmpegPath")) {
-                    ffmpegPathInput.value = localStorage.getItem("ffmpegPath");
-                }
-                ffmpegPathInput.addEventListener("input", function() {
-                    localStorage.setItem("ffmpegPath", ffmpegPathInput.value.trim());
-                });
             }
 
             const form = document.querySelector("form");

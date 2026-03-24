@@ -22,8 +22,7 @@ public class PageController {
 
     private static final Logger log = LoggerFactory.getLogger(PageController.class);
 
-    private static final Pattern PLAYLIST_ID_PATTERN =
-            Pattern.compile("playlist/([a-zA-Z0-9]+)");
+    private static final Pattern PLAYLIST_ID_PATTERN = Pattern.compile("playlist/([a-zA-Z0-9]+)");
 
     private final ApiService apiService;
     private final YoutubeDownloadService youtubeDownloadService;
@@ -32,8 +31,6 @@ public class PageController {
         this.apiService = apiService;
         this.youtubeDownloadService = youtubeDownloadService;
     }
-
-    // ── Downloader ────────────────────────────────────────────────────────────
 
     @GetMapping({"/", "/downloader"})
     public String downloaderPage(
@@ -98,17 +95,16 @@ public class PageController {
         for (MusicDto music : tracks) {
             String query = music.getArtistName() + " " + music.getTrackName();
             boolean ok = youtubeDownloadService.baixarMusica(query, folder);
-            if (ok) sucesso++; else falhas++;
+            if (ok) sucesso++;
+            else falhas++;
         }
 
         model.addAttribute("mensagem",
                 "Download concluído! " + sucesso + " músicas baixadas com sucesso" +
-                (falhas > 0 ? ", " + falhas + " com falha." : "."));
+                        (falhas > 0 ? ", " + falhas + " com falha." : "."));
 
         return "downloader";
     }
-
-    // ── Configurações ─────────────────────────────────────────────────────────
 
     @GetMapping("/configuracoes")
     public String configuracoesPage(Model model) {
@@ -136,15 +132,12 @@ public class PageController {
         return "configuracoes";
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     private String extrairIdPlaylist(String url) {
         if (url == null) return null;
         Matcher matcher = PLAYLIST_ID_PATTERN.matcher(url);
         if (matcher.find()) {
             return matcher.group(1);
         }
-        // If user typed just the ID directly
         if (url.matches("[a-zA-Z0-9]{22}")) {
             return url;
         }

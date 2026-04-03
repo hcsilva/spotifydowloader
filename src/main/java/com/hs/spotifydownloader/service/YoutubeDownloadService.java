@@ -5,8 +5,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,7 +21,6 @@ public class YoutubeDownloadService {
 
     private static final Logger log = LoggerFactory.getLogger(YoutubeDownloadService.class);
     private static final String TOOLS_DIR = "C:\\tools";
-    private static final String FFMPEG_RELATIVE_PATH = "target/ffmpeg";
 
     private String ytDlpPath;
 
@@ -47,6 +48,111 @@ public class YoutubeDownloadService {
             log.error("Erro ao baixar música: {}", e.getMessage(), e);
             return false;
         }
+    }
+
+    /**
+     * Resolve o diretório onde o .jar está localizado em disco.
+     *
+     * Quando rodando dentro de um .jar empacotado (jpackage), o classloader
+     * retorna uma URI do tipo "jar:file:/C:/.../" que não pode ser convertida
+     * diretamente para File. Por isso usamos a propriedade de sistema
+     * "java.class.path" como fallback, que aponta para o .jar real no disco.
+     */
+    private Path resolveAppDirectory() {
+        // 1. Tenta via java.class.path — mais confiável dentro de .jar empacotado
+        String classpath = System.getProperty("java.class.path");
+        if (classpath != null && !classpath.isEmpty()) {
+            // classpath pode ter múltiplas entradas separadas por ";"
+            String firstEntry = classpath.split(";")[0].trim();
+            Path cpPath = Paths.get(firstEntry).toAbsolutePath();
+            Path cpDir = Files.isRegularFile(cpPath) ? cpPath.getParent() : cpPath;
+            if (cpDir != null && Files.exists(cpDir)) {
+                log.info("Diretório da aplicação resolvido via classpath: {}", cpDir);
+                return cpDir;
+            }
+        }
+
+        // 2. Fallback: tenta via ProtectionDomain (funciona na IDE / classes explodidas)
+        try {
+            java.net.URL location = YoutubeDownloadService.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation();
+
+            // Converte "jar:file:/C:/..." ou "file:/C:/..." para Path
+            String urlStr = location.toString();
+            if (urlStr.startsWith("jar:")) {
+                urlStr = urlStr.substring(4); // remove "jar:"
+            }
+            if (urlStr.contains("!")) {
+                urlStr = urlStr.substring(0, urlStr.indexOf("!")); // remove "!/BOOT-INF/..."
+            }
+
+            Path locPath = Paths.get(new java.net.URI(urlStr)).toAbsolutePath();
+            Path locDir = Files.isRegularFile(locPath) ? locPath.getParent() : locPath;
+            log.info("Diretório da aplicação resolvido via ProtectionDomain: {}", locDir);
+            return locDir;
+
+        } catch (Exception e) {
+            log.warn("Não foi possível resolver diretório via ProtectionDomain: {}", e.getMessage());
+        }
+
+        // 3. Último recurso: diretório de trabalho atual
+        Path fallback = Paths.get("").toAbsolutePath();
+        log.warn("Usando diretório de trabalho como fallback: {}", fallback);
+        return fallback;
+    }
+
+    /**
+     * Procura o ffmpeg.exe em múltiplos locais, em ordem de prioridade:
+     *
+     * Estrutura jpackage instalado no cliente:
+     *   C:\Program Files\SpotifyDownloader\
+     *     ├── SpotifyDownloader.exe
+     *     ├── ffmpeg\          ← --app-content coloca aqui (pasta pai de app\)
+     *     ├── app\             ← .jar roda daqui (appDir)
+     *     └── runtime\
+     *
+     * 1. Pasta pai de appDir + ffmpeg\  (instalação jpackage - caso do cliente)
+     * 2. appDir + ffmpeg\               (caso alternativo)
+     * 3. appDir + ffmpeg\bin\           (ffmpeg com subpasta bin)
+     * 4. target\ffmpeg\                 (desenvolvimento na IDE)
+     */
+    private String findFfmpeg() {
+        Path appDir = resolveAppDirectory();
+        Path parentDir = appDir.getParent(); // sobe um nível: app\ -> SpotifyDownloader\
+
+        List<Path> candidates = new ArrayList<>();
+
+        // 1. Pasta pai + ffmpeg (instalação jpackage: C:\Program Files\SpotifyDownloader\ffmpeg\)
+        if (parentDir != null) {
+            candidates.add(parentDir.resolve("ffmpeg").resolve("ffmpeg.exe"));
+            candidates.add(parentDir.resolve("ffmpeg").resolve("bin").resolve("ffmpeg.exe"));
+        }
+
+        // 2. Ao lado do .jar (app\ffmpeg\)
+        candidates.add(appDir.resolve("ffmpeg").resolve("ffmpeg.exe"));
+        candidates.add(appDir.resolve("ffmpeg").resolve("bin").resolve("ffmpeg.exe"));
+
+        // 3. ffmpeg.exe diretamente ao lado do .jar
+        candidates.add(appDir.resolve("ffmpeg.exe"));
+
+        // 4. Desenvolvimento na IDE (target\ffmpeg\)
+        candidates.add(Paths.get("target", "ffmpeg", "ffmpeg.exe").toAbsolutePath());
+
+        for (Path candidate : candidates) {
+            if (Files.exists(candidate)) {
+                // yt-dlp espera o diretório onde está o ffmpeg.exe, não o .exe diretamente
+                String ffmpegDir = candidate.getParent().toString();
+                log.info("ffmpeg encontrado em: {} -> usando diretório: {}", candidate, ffmpegDir);
+                return ffmpegDir;
+            }
+        }
+
+        log.warn("ffmpeg não encontrado em nenhum caminho. Caminhos verificados:");
+        candidates.forEach(c -> log.warn("  - {}", c));
+        log.warn("O yt-dlp tentará usar o ffmpeg do PATH do sistema.");
+        return null;
     }
 
     private String findYtDlp() {
@@ -92,7 +198,8 @@ public class YoutubeDownloadService {
 
             log.info("Baixando: {}", artistAndTrack);
 
-            String ffmpegPath = Paths.get(FFMPEG_RELATIVE_PATH).toAbsolutePath().toString();
+            // Resolve o ffmpeg dinamicamente em runtime
+            String ffmpegDir = findFfmpeg();
 
             List<String> command = new ArrayList<>(Arrays.asList(
                     ytDlpPath,
@@ -101,12 +208,20 @@ public class YoutubeDownloadService {
                     "--audio-format", "mp3",
                     "--audio-quality", "0",
                     "-o", musicasDir.resolve(fileName + ".%(ext)s").toString(),
-                    "--ffmpeg-location", ffmpegPath,
                     "--embed-metadata",
                     "--no-playlist",
                     "--progress",
                     "--newline"
             ));
+
+            // Só adiciona --ffmpeg-location se encontrou o ffmpeg
+            if (ffmpegDir != null) {
+                command.add("--ffmpeg-location");
+                command.add(ffmpegDir);
+                log.info("Usando ffmpeg em: {}", ffmpegDir);
+            } else {
+                log.warn("Continuando sem --ffmpeg-location. A conversão para MP3 pode falhar.");
+            }
 
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             processBuilder.directory(musicasDir.toFile());

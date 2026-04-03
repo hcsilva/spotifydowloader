@@ -78,6 +78,24 @@
                        class="btn btn-outline-success btn-sm">
                         Abrir &#8599;
                     </a>
+            </div>
+            
+            <!-- Logs Card -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">&#128196; Logs do Sistema</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Se você encontrar problemas, pode verificar os arquivos de log para obter mais detalhes.
+                    </p>
+                    <form th:action="@{/configuracoes/abrir-logs}" method="post">
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-outline-secondary">
+                                &#128449; Abrir Pasta de Logs
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
 

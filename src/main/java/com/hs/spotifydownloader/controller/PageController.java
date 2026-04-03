@@ -6,11 +6,15 @@ import com.hs.spotifydownloader.service.ApiService;
 import com.hs.spotifydownloader.service.YoutubeDownloadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import java.io.File;
+import java.io.IOException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -130,6 +134,32 @@ public class PageController {
         apiService.setCredenciais(clientId.trim(), clientSecret.trim());
         model.addAttribute("mensagem", "Credenciais salvas com sucesso!");
         return "configuracoes";
+    }
+
+    @Value("${logging.file.path}")
+    private String logPath;
+
+    @PostMapping("/configuracoes/abrir-logs")
+    public String abrirLogs() {
+        try {
+            File folder = new File(logPath);
+            if (!folder.exists()) {
+                folder.mkdirs();
+            }
+
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("win")) {
+                Runtime.getRuntime().exec("explorer.exe \"" + folder.getAbsolutePath() + "\"");
+            } else if (os.contains("mac")) {
+                Runtime.getRuntime().exec("open \"" + folder.getAbsolutePath() + "\"");
+            } else {
+                Runtime.getRuntime().exec("xdg-open \"" + folder.getAbsolutePath() + "\"");
+            }
+            log.info("Pasta de logs aberta: {}", folder.getAbsolutePath());
+        } catch (IOException e) {
+            log.error("Erro ao abrir pasta de logs", e);
+        }
+        return "redirect:/configuracoes";
     }
 
     private String extrairIdPlaylist(String url) {

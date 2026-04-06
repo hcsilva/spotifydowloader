@@ -18,7 +18,6 @@ import java.util.List;
 
 @Service
 public class YoutubeDownloadService {
-
     private static final Logger log = LoggerFactory.getLogger(YoutubeDownloadService.class);
     private static final String TOOLS_DIR = "C:\\tools";
 
@@ -49,20 +48,9 @@ public class YoutubeDownloadService {
             return false;
         }
     }
-
-    /**
-     * Resolve o diretório onde o .jar está localizado em disco.
-     *
-     * Quando rodando dentro de um .jar empacotado (jpackage), o classloader
-     * retorna uma URI do tipo "jar:file:/C:/.../" que não pode ser convertida
-     * diretamente para File. Por isso usamos a propriedade de sistema
-     * "java.class.path" como fallback, que aponta para o .jar real no disco.
-     */
     private Path resolveAppDirectory() {
-        // 1. Tenta via java.class.path — mais confiável dentro de .jar empacotado
         String classpath = System.getProperty("java.class.path");
         if (classpath != null && !classpath.isEmpty()) {
-            // classpath pode ter múltiplas entradas separadas por ";"
             String firstEntry = classpath.split(";")[0].trim();
             Path cpPath = Paths.get(firstEntry).toAbsolutePath();
             Path cpDir = Files.isRegularFile(cpPath) ? cpPath.getParent() : cpPath;
@@ -72,20 +60,18 @@ public class YoutubeDownloadService {
             }
         }
 
-        // 2. Fallback: tenta via ProtectionDomain (funciona na IDE / classes explodidas)
         try {
             java.net.URL location = YoutubeDownloadService.class
                     .getProtectionDomain()
                     .getCodeSource()
                     .getLocation();
 
-            // Converte "jar:file:/C:/..." ou "file:/C:/..." para Path
             String urlStr = location.toString();
             if (urlStr.startsWith("jar:")) {
-                urlStr = urlStr.substring(4); // remove "jar:"
+                urlStr = urlStr.substring(4);
             }
             if (urlStr.contains("!")) {
-                urlStr = urlStr.substring(0, urlStr.indexOf("!")); // remove "!/BOOT-INF/..."
+                urlStr = urlStr.substring(0, urlStr.indexOf("!"));
             }
 
             Path locPath = Paths.get(new java.net.URI(urlStr)).toAbsolutePath();
@@ -97,52 +83,29 @@ public class YoutubeDownloadService {
             log.warn("Não foi possível resolver diretório via ProtectionDomain: {}", e.getMessage());
         }
 
-        // 3. Último recurso: diretório de trabalho atual
         Path fallback = Paths.get("").toAbsolutePath();
         log.warn("Usando diretório de trabalho como fallback: {}", fallback);
         return fallback;
     }
 
-    /**
-     * Procura o ffmpeg.exe em múltiplos locais, em ordem de prioridade:
-     *
-     * Estrutura jpackage instalado no cliente:
-     *   C:\Program Files\SpotifyDownloader\
-     *     ├── SpotifyDownloader.exe
-     *     ├── ffmpeg\          ← --app-content coloca aqui (pasta pai de app\)
-     *     ├── app\             ← .jar roda daqui (appDir)
-     *     └── runtime\
-     *
-     * 1. Pasta pai de appDir + ffmpeg\  (instalação jpackage - caso do cliente)
-     * 2. appDir + ffmpeg\               (caso alternativo)
-     * 3. appDir + ffmpeg\bin\           (ffmpeg com subpasta bin)
-     * 4. target\ffmpeg\                 (desenvolvimento na IDE)
-     */
     private String findFfmpeg() {
         Path appDir = resolveAppDirectory();
-        Path parentDir = appDir.getParent(); // sobe um nível: app\ -> SpotifyDownloader\
+        Path parentDir = appDir.getParent();
 
         List<Path> candidates = new ArrayList<>();
 
-        // 1. Pasta pai + ffmpeg (instalação jpackage: C:\Program Files\SpotifyDownloader\ffmpeg\)
         if (parentDir != null) {
             candidates.add(parentDir.resolve("ffmpeg").resolve("ffmpeg.exe"));
             candidates.add(parentDir.resolve("ffmpeg").resolve("bin").resolve("ffmpeg.exe"));
         }
 
-        // 2. Ao lado do .jar (app\ffmpeg\)
         candidates.add(appDir.resolve("ffmpeg").resolve("ffmpeg.exe"));
         candidates.add(appDir.resolve("ffmpeg").resolve("bin").resolve("ffmpeg.exe"));
-
-        // 3. ffmpeg.exe diretamente ao lado do .jar
         candidates.add(appDir.resolve("ffmpeg.exe"));
-
-        // 4. Desenvolvimento na IDE (target\ffmpeg\)
         candidates.add(Paths.get("target", "ffmpeg", "ffmpeg.exe").toAbsolutePath());
 
         for (Path candidate : candidates) {
             if (Files.exists(candidate)) {
-                // yt-dlp espera o diretório onde está o ffmpeg.exe, não o .exe diretamente
                 String ffmpegDir = candidate.getParent().toString();
                 log.info("ffmpeg encontrado em: {} -> usando diretório: {}", candidate, ffmpegDir);
                 return ffmpegDir;
@@ -198,9 +161,7 @@ public class YoutubeDownloadService {
 
             log.info("Baixando: {}", artistAndTrack);
 
-            // Resolve o ffmpeg dinamicamente em runtime
             String ffmpegDir = findFfmpeg();
-
             List<String> command = new ArrayList<>(Arrays.asList(
                     ytDlpPath,
                     "ytsearch1:" + artistAndTrack,
@@ -214,7 +175,6 @@ public class YoutubeDownloadService {
                     "--newline"
             ));
 
-            // Só adiciona --ffmpeg-location se encontrou o ffmpeg
             if (ffmpegDir != null) {
                 command.add("--ffmpeg-location");
                 command.add(ffmpegDir);
@@ -242,9 +202,9 @@ public class YoutubeDownloadService {
             boolean success = (exitCode == 0 || exitCode == 1) && Files.exists(musicasDir);
 
             if (success) {
-                log.info("✓ Download concluído: {}", musicasDir);
+                log.info("Download concluído: {}", musicasDir);
             } else {
-                log.error("✗ Falha no download. Exit code: {}", exitCode);
+                log.error("Falha no download. Exit code: {}", exitCode);
             }
 
             return success;
@@ -276,7 +236,7 @@ public class YoutubeDownloadService {
         );
         executarComando(pb, "PowerShell (yt-dlp)");
 
-        log.info("✓ yt-dlp instalado com sucesso em {}", ytDlpExe);
+        log.info("yt-dlp instalado com sucesso em {}", ytDlpExe);
     }
 
     private void executarComando(ProcessBuilder pb, String label) throws IOException, InterruptedException {

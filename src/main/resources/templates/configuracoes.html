@@ -20,6 +20,37 @@
                 <strong>Erro:</strong> <span th:text="${erro}"></span>
             </div>
 
+            <!-- Spotify Authentication Card -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">&#128274; Autenticação Spotify</h5>
+                    <span th:if="${isAuthenticated}" class="badge bg-success">Conectado</span>
+                    <span th:if="${!isAuthenticated}" class="badge bg-secondary">Não Conectado</span>
+                </div>
+                <div class="card-body">
+                    <div th:if="${!isAuthenticated}">
+                        <p class="text-muted small mb-3">
+                            Você precisa autorizar o aplicativo para acessar as playlists do Spotify.
+                        </p>
+                        <div class="d-grid">
+                            <a href="/auth/login" class="btn btn-spotify">
+                                <i class="bi bi-spotify"></i> Login com Spotify
+                            </a>
+                        </div>
+                    </div>
+                    <div th:if="${isAuthenticated}">
+                        <p class="mb-3">
+                            O sistema está autenticado e pronto para carregar playlists.
+                        </p>
+                        <form action="/auth/logout" method="post" class="d-grid">
+                            <button type="submit" class="btn btn-outline-danger">
+                                Desconectar Conta
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
             <!-- Credentials Card -->
             <div class="card mb-4">
                 <div class="card-header">

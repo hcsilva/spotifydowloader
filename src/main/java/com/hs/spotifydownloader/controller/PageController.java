@@ -3,6 +3,7 @@ package com.hs.spotifydownloader.controller;
 import com.hs.spotifydownloader.dto.MusicDto;
 import com.hs.spotifydownloader.dto.PlaylistResponseDto;
 import com.hs.spotifydownloader.service.ApiService;
+import com.hs.spotifydownloader.service.TokenStoreService;
 import com.hs.spotifydownloader.service.YoutubeDownloadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,10 +31,12 @@ public class PageController {
 
     private final ApiService apiService;
     private final YoutubeDownloadService youtubeDownloadService;
+    private final TokenStoreService tokenStore;
 
-    public PageController(ApiService apiService, YoutubeDownloadService youtubeDownloadService) {
+    public PageController(ApiService apiService, YoutubeDownloadService youtubeDownloadService, TokenStoreService tokenStore) {
         this.apiService = apiService;
         this.youtubeDownloadService = youtubeDownloadService;
+        this.tokenStore = tokenStore;
     }
 
     @GetMapping({"/", "/downloader"})
@@ -111,9 +114,20 @@ public class PageController {
     }
 
     @GetMapping("/configuracoes")
-    public String configuracoesPage(Model model) {
+    public String configuracoesPage(
+            @RequestParam(required = false) String mensagem,
+            @RequestParam(required = false) String erro,
+            Model model) {
+        
         model.addAttribute("activePage", "configuracoes");
         model.addAttribute("pageTitle", "Configurações");
+        model.addAttribute("isAuthenticated", tokenStore.isAuthenticated());
+        model.addAttribute("clientId", tokenStore.getClientId());
+        model.addAttribute("clientSecret", tokenStore.getClientSecret());
+        
+        if (mensagem != null) model.addAttribute("mensagem", mensagem);
+        if (erro != null) model.addAttribute("erro", erro);
+        
         return "configuracoes";
     }
 
@@ -128,11 +142,15 @@ public class PageController {
 
         if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
             model.addAttribute("erro", "Client ID e Client Secret são obrigatórios.");
-            return "configuracoes";
+        } else {
+            apiService.setCredenciais(clientId.trim(), clientSecret.trim());
+            model.addAttribute("mensagem", "Credenciais salvas com sucesso!");
         }
 
-        apiService.setCredenciais(clientId.trim(), clientSecret.trim());
-        model.addAttribute("mensagem", "Credenciais salvas com sucesso!");
+        model.addAttribute("isAuthenticated", tokenStore.isAuthenticated());
+        model.addAttribute("clientId", tokenStore.getClientId());
+        model.addAttribute("clientSecret", tokenStore.getClientSecret());
+
         return "configuracoes";
     }
 

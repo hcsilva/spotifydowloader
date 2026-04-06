@@ -17,39 +17,60 @@ import java.util.List;
 @Service
 public class ApiService {
 
-    private String clientId;
-    private String clientSecret;
     private final RestClient restClient;
+    private final TokenStoreService tokenStore;
 
-    public ApiService(RestClient restClient) {
+    public ApiService(RestClient restClient, TokenStoreService tokenStore) {
         this.restClient = restClient;
+        this.tokenStore = tokenStore;
     }
 
     public void setCredenciais(String clientId, String clientSecret) {
-        this.clientId = clientId;
-        this.clientSecret = clientSecret;
+        tokenStore.setCredenciais(clientId, clientSecret);
     }
 
     private String obterAccessToken() {
-        if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
-            throw new IllegalStateException("Credenciais do Spotify não configuradas. Acesse a aba Configurações.");
+        if (!tokenStore.isAuthenticated()) {
+            throw new IllegalStateException("Você precisa se autenticar no Spotify. Vá em Configurações e clique em Login.");
         }
 
-        String body = "grant_type=client_credentials";
+        if (tokenStore.isTokenExpired()) {
+            refreshAccessToken();
+        }
+
+        return tokenStore.getAccessToken();
+    }
+
+    private synchronized void refreshAccessToken() {
+        String clientId = tokenStore.getClientId();
+        String clientSecret = tokenStore.getClientSecret();
         String credentials = clientId + ":" + clientSecret;
         String basicAuth = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
 
-        var result = this.restClient.post()
-                .uri("https://accounts.spotify.com/api/token")
-                .header(HttpHeaders.AUTHORIZATION, "Basic " + basicAuth)
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-                .body(body)
-                .retrieve()
-                .toEntity(String.class);
+        String body = "grant_type=refresh_token" +
+                "&refresh_token=" + tokenStore.getRefreshToken();
 
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode json = mapper.readTree(result.getBody());
-        return json.get("access_token").asString();
+        try {
+            var result = this.restClient.post()
+                    .uri("https://accounts.spotify.com/api/token")
+                    .header(HttpHeaders.AUTHORIZATION, "Basic " + basicAuth)
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                    .body(body)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode json = mapper.readTree(result.getBody());
+
+            String accessToken = json.get("access_token").asString();
+            int expiresIn = json.get("expires_in").asInt();
+
+            String newRefreshToken = json.has("refresh_token") ? json.get("refresh_token").asString() : tokenStore.getRefreshToken();
+
+            tokenStore.setTokens(accessToken, newRefreshToken, expiresIn);
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao renovar token do Spotify: " + e.getMessage());
+        }
     }
 
     public PlaylistResponseDto carregarPlaylist(String idPlaylist) {
@@ -71,7 +92,7 @@ public class ApiService {
         JsonNode jsonNode = mapper.readTree(result.getBody());
         playlist.setPlaylistName(jsonNode.get("name").asString());
 
-        JsonNode tracksNode = jsonNode.path("tracks");
+        JsonNode tracksNode = jsonNode.path("items");
         processarTracks(tracksNode.path("items"), musicList);
 
         String nextUrl = tracksNode.path("next").asString(null);
@@ -90,27 +111,27 @@ public class ApiService {
         }
 
         playlist.setMusicList(musicList);
-
         return playlist;
     }
 
     private void processarTracks(JsonNode items, List<MusicDto> musicList) {
-        for (JsonNode item : items) {
-            JsonNode track = item.path("track");
+        for (JsonNode itemNode : items) {
+
+            JsonNode track = itemNode.has("track") ? itemNode.path("track") : itemNode.path("item");
 
             if (track.isMissingNode() || track.isNull()) {
                 continue;
             }
 
-            MusicDto musicDto = new MusicDto();
-            musicDto.setTrackName(track.get("name").asString());
+            MusicDto dto = new MusicDto();
+            dto.setTrackName(track.path("name").asText());
 
             JsonNode artists = track.path("artists");
             if (artists.isArray() && !artists.isEmpty()) {
-                musicDto.setArtistName(artists.get(0).path("name").asString());
+                dto.setArtistName(artists.get(0).path("name").asText());
             }
 
-            musicList.add(musicDto);
+            musicList.add(dto);
         }
     }
 }

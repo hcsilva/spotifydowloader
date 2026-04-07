@@ -162,15 +162,18 @@ public class YoutubeDownloadService {
             log.info("Baixando: {}", artistAndTrack);
 
             String ffmpegDir = findFfmpeg();
+
             List<String> command = new ArrayList<>(Arrays.asList(
                     ytDlpPath,
-                    "ytsearch1:" + artistAndTrack,
+                    "ytsearch1:" + artistAndTrack + " official audio -live -remix -cover",
+                    "--format", "bestaudio[ext=m4a]/bestaudio",
                     "--extract-audio",
                     "--audio-format", "mp3",
                     "--audio-quality", "0",
-                    "-o", musicasDir.resolve(fileName + ".%(ext)s").toString(),
+                    "--match-filter", "!is_live",
                     "--embed-metadata",
                     "--no-playlist",
+                    "-o", musicasDir.resolve(fileName + ".%(ext)s").toString(),
                     "--progress",
                     "--newline"
             ));
